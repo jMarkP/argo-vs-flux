@@ -6,7 +6,7 @@ metadata:
 data:
   config.json: |-
     {
-      "idp_name": "http://simple-oidc-provider.tpw:9000",
+      "idp_name": "http://simple-oidc-provider",
       "port": 9000,
       "client_config": [ {{- range $index, $client := .Values.clients }}
         {{- if $index }},{{- end}}

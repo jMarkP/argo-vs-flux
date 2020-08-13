@@ -8,7 +8,7 @@ NAMESPACE=tpw
 
 wait_for_pod_ready() {
     sleep 5 # Avoid issue if we're too fast and the pod has not yet been created
-    kubectl --context $CLUSTER -n $NAMESPACE \
+    kubectl --context $CLUSTER -n $2 \
         wait --for=condition=Ready pod -l $1 --timeout=10m
 }
 
@@ -27,6 +27,7 @@ build_clusters() {
     do
         minikube start -p $c
         minikube addons enable ingress -p $c
+        wait_for_pod_ready "app.kubernetes.io/component=controller,app.kubernetes.io/instance=ingress-nginx,app.kubernetes.io/name=ingress-nginx" kube-system
     done
 }
 
@@ -37,6 +38,12 @@ create_namespace() {
 install_oidc() {
     helm --kube-context=$CLUSTER -n $NAMESPACE install \
         simple-oidc-provider ../simple-oidc-provider
+    
+    echo "Adding ingress hosts to /etc/hosts. You will be asked for your sudo password..."
+    HOSTS="simple-oidc-provider"
+    sudo rm -f /etc/hosts.bak
+    sudo sed -i .bak '/$HOSTS/d' /etc/hosts
+    echo "`minikube ip -p $CLUSTER` $HOSTS" | sudo tee -a /etc/hosts
 }
 
 install_prometheus() {
@@ -45,7 +52,24 @@ install_prometheus() {
         prometheus-operator bitnami/prometheus-operator
     
     echo "Waiting for prometheus-operator pod to be Ready..."
-    wait_for_pod_ready app.kubernetes.io/component=operator,app.kubernetes.io/instance=prometheus-operator,app.kubernetes.io/name=prometheus-operator
+    wait_for_pod_ready app.kubernetes.io/component=operator,app.kubernetes.io/instance=prometheus-operator,app.kubernetes.io/name=prometheus-operator $NAMESPACE
+}
+
+install_argo_cd() {
+    create_namespace tpw-new
+    NAME=tpw-new-argocd
+
+    helm repo add argo https://argoproj.github.io/argo-helm
+    helm --kube-context=$CLUSTER -n tpw-new install \
+        $NAME argo/argo-cd --version 2.6.0 \
+        -f argo-values.yaml
+
+    
+    echo "Adding ingress hosts to /etc/hosts. You will be asked for your sudo password..."
+    HOSTS="$NAME $NAME-grpc $NAME-grafana $NAME-prometheus"
+    sudo rm -f /etc/hosts.bak
+    sudo sed -i .bak '/$HOSTS/d' /etc/hosts
+    echo "`minikube ip -p $CLUSTER` $HOSTS" | sudo tee -a /etc/hosts
 }
 
 install_argo_operator() {
@@ -58,7 +82,7 @@ install_argo_operator() {
             apply -f "https://raw.githubusercontent.com/argoproj-labs/argocd-operator/master/deploy/$resource.yaml"
     done
     echo "Waiting for argocd-operator pod to be Ready..."
-    wait_for_pod_ready name=argocd-operator
+    wait_for_pod_ready name=argocd-operator $NAMESPACE
 }
 
 install_argo_instance() {
@@ -87,7 +111,7 @@ spec:
         enabled: true
   oidcConfig: |
     name: Simple
-    issuer: http://simple-oidc-provider.tpw:9000
+    issuer: http://simple-oidc-provider
     clientID: tpw
     clientSecret: tpw-secret
     # Optional set of OIDC scopes to request. If omitted, defaults to: ["openid", "profile", "email", "groups"]
@@ -97,16 +121,19 @@ spec:
 EOF
 
     echo "Waiting for argocd server to start"
-    wait_for_pod_ready app.kubernetes.io/name=$NAMESPACE-argocd-server
+    wait_for_pod_ready app.kubernetes.io/name=$NAMESPACE-argocd-server $NAMESPACE
     
     echo "Adding ingress hosts to /etc/hosts. You will be asked for your sudo password..."
-    echo "`minikube ip -p $CLUSTER` $NAME $NAME-grpc $NAME-grafana $NAME-prometheus" | sudo tee -a /etc/hosts
+    HOSTS="$NAME $NAME-grpc $NAME-grafana $NAME-prometheus"
+    sudo sed -i .bak '/$HOSTS/d' /etc/hosts
+    echo "`minikube ip -p $CLUSTER` $HOSTS" | sudo tee -a /etc/hosts
 }
 
 cleanup
 build_clusters
 create_namespace $NAMESPACE
 install_oidc
-time install_prometheus
-time install_argo_operator
-time install_argo_instance
+#time install_prometheus
+time install_argo_cd
+#time install_argo_operator
+#time install_argo_instance

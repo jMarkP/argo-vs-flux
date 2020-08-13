@@ -1,4 +1,4 @@
 clients:
 - client_id: tpw
   client_secret: tpw-secret
-  redirect_url: http://tpw-argocd/auth/callback
+  redirect_url: https://tpw-argocd/auth/callback

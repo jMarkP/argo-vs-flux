@@ -2,7 +2,7 @@
 Comparing ArgoCD and FluxCD
 
 ## What?
-Simulating G-Research's Kubernetes workloads and requirements and how ArgoCD and FluxCD might satisfy them.
+Simulating G-Research's Kubernetes workloads and requirements and comparing how ArgoCD and FluxCD might satisfy them.
 
 ## Categories for comparison
 
@@ -19,3 +19,7 @@ Simulating G-Research's Kubernetes workloads and requirements and how ArgoCD and
 - Alerts - broken releases, out of sync with Git
 - Support for emitting events on sync
 - Turnkey - how easy it can be deployed to a new environment
+
+## Current status
+- ArgoCD test script mostly working
+- Investigating Argo's RBAC setup
