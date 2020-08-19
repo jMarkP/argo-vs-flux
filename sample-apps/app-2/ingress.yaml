@@ -1,11 +1,15 @@
-apiVersion: v1
-kind: Service
+apiVersion: extensions/v1beta1
+kind: Ingress
 metadata:
   name: guestbook-ui
   namespace: demo
 spec:
-  ports:
-  - port: 80
-    targetPort: 80
-  selector:
-    app: guestbook-ui
+  rules:
+  - host: guestbook-ui
+    http:
+      paths:
+      - backend:
+          serviceName: guestbook-ui
+          servicePort: http
+        path: /
+        pathType: ImplementationSpecific
